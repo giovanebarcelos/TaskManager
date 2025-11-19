@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerenciador de Tarefas</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .task-card {
+            transition: transform 0.2s;
+            border-left: 4px solid;
+        }
+        .task-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .priority-low { border-left-color: #28a745; }
+        .priority-medium { border-left-color: #ffc107; }
+        .priority-high { border-left-color: #fd7e14; }
+        .priority-urgent { border-left-color: #dc3545; }
+        .status-badge {
+            font-size: 0.85rem;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="/tasks">
+                <i class="bi bi-check2-square"></i> Gerenciador de Tarefas
+            </a>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2><i class="bi bi-list-task"></i> Minhas Tarefas</h2>
+            <a href="/tasks/new" class="btn btn-primary">
+                <i class="bi bi-plus-circle"></i> Nova Tarefa
+            </a>
+        </div>
+
+        <!-- Filtros -->
+        <div class="btn-group mb-3" role="group">
+            <a href="/tasks" class="btn btn-outline-secondary">
+                <i class="bi bi-list"></i> Todas
+            </a>
+            <a href="/tasks?filter=pending" class="btn btn-outline-warning">
+                <i class="bi bi-hourglass-split"></i> Pendentes
+            </a>
+            <a href="/tasks?filter=completed" class="btn btn-outline-success">
+                <i class="bi bi-check-circle"></i> Concluídas
+            </a>
+        </div>
+
+        <!-- Mensagens de Sucesso -->
+        <div th:if="${success}" class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="bi bi-check-circle-fill"></i> <span th:text="${success}"></span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+
+        <!-- Lista de Tarefas -->
+        <div class="row">
+            <div class="col-md-12" th:if="${tasks.empty}">
+                <div class="alert alert-info text-center">
+                    <i class="bi bi-info-circle"></i> Nenhuma tarefa encontrada.
+                </div>
+            </div>
+
+            <div class="col-md-6 col-lg-4 mb-3" th:each="task : ${tasks}">
+                <div class="card task-card h-100" 
+                     th:classappend="${'priority-' + #strings.toLowerCase(task.priority)}">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h5 class="card-title" th:text="${task.title}">Título</h5>
+                            <span class="badge status-badge"
+                                  th:classappend="${task.status == T(com.taskmanager.model.Task.TaskStatus).PENDING ? 'bg-warning' : 
+                                                   task.status == T(com.taskmanager.model.Task.TaskStatus).IN_PROGRESS ? 'bg-info' :
+                                                   task.status == T(com.taskmanager.model.Task.TaskStatus).COMPLETED ? 'bg-success' : 'bg-secondary'}"
+                                  th:text="${task.status.displayName}">Status</span>
+                        </div>
+                        
+                        <p class="card-text" th:text="${task.description ?: 'Sem descrição'}">Descrição</p>
+                        
+                        <div class="mb-2">
+                            <small class="text-muted">
+                                <i class="bi bi-flag-fill" 
+                                   th:style="${'color: ' + (task.priority == T(com.taskmanager.model.Task.TaskPriority).LOW ? '#28a745' :
+                                                           task.priority == T(com.taskmanager.model.Task.TaskPriority).MEDIUM ? '#ffc107' :
+                                                           task.priority == T(com.taskmanager.model.Task.TaskPriority).HIGH ? '#fd7e14' : '#dc3545')}"></i>
+                                <span th:text="${task.priority.displayName}">Prioridade</span>
+                            </small>
+                        </div>
+                        
+                        <small class="text-muted d-block mb-3">
+                            <i class="bi bi-calendar"></i>
+                            Criada em: <span th:text="${#temporals.format(task.createdAt, 'dd/MM/yyyy HH:mm')}"></span>
+                        </small>
+
+                        <div class="btn-group btn-group-sm w-100" role="group">
+                            <a th:href="@{/tasks/{id}/edit(id=${task.id})}" 
+                               class="btn btn-outline-primary">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            
+                            <form th:if="${task.status != T(com.taskmanager.model.Task.TaskStatus).COMPLETED}"
+                                  th:action="@{/tasks/{id}/complete(id=${task.id})}" 
+                                  method="post" style="display: inline;">
+                                <button type="submit" class="btn btn-outline-success">
+                                    <i class="bi bi-check"></i>
+                                </button>
+                            </form>
+                            
+                            <form th:if="${task.status != T(com.taskmanager.model.Task.TaskStatus).CANCELLED}"
+                                  th:action="@{/tasks/{id}/cancel(id=${task.id})}" 
+                                  method="post" style="display: inline;">
+                                <button type="submit" class="btn btn-outline-warning">
+                                    <i class="bi bi-x"></i>
+                                </button>
+                            </form>
+                            
+                            <form th:action="@{/tasks/{id}/delete(id=${task.id})}" 
+                                  method="post" style="display: inline;"
+                                  onsubmit="return confirm('Tem certeza que deseja excluir esta tarefa?');">
+                                <button type="submit" class="btn btn-outline-danger">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

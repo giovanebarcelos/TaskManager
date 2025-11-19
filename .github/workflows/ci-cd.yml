@@ -1,0 +1,157 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+permissions:
+  contents: read
+  packages: write
+  actions: read
+  checks: write
+  pull-requests: write
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
+    
+    steps:
+    - name: Checkout código
+      uses: actions/checkout@v4
+      
+    - name: Configurar JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: maven
+        
+    - name: Build com Maven
+      run: mvn clean install -DskipTests
+      
+    - name: Executar testes unitários e gerar cobertura
+      run: mvn test
+      
+    - name: Verificar cobertura mínima
+      run: mvn verify -DskipTests
+      continue-on-error: true
+      
+    - name: Upload do relatório de cobertura
+      uses: actions/upload-artifact@v4
+      with:
+        name: jacoco-report
+        path: target/site/jacoco/
+        
+    - name: Publicar resultados dos testes
+      uses: dorny/test-reporter@v1
+      if: always()
+      with:
+        name: Test Results
+        path: target/surefire-reports/*.xml
+        reporter: java-junit
+        
+    - name: Comentar cobertura no PR
+      if: github.event_name == 'pull_request'
+      uses: madrapps/jacoco-report@v1.6.1
+      with:
+        paths: ${{ github.workspace }}/target/site/jacoco/jacoco.xml
+        token: ${{ secrets.GITHUB_TOKEN }}
+        min-coverage-overall: 80
+        min-coverage-changed-files: 80
+        title: 'Relatório de Cobertura de Código'
+      
+    - name: Build da imagem Docker
+      if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+      run: |
+        docker build -t taskmanager:latest .
+        
+    - name: Salvar artefatos
+      uses: actions/upload-artifact@v4
+      with:
+        name: taskmanager-jar
+        path: target/*.jar
+        retention-days: 7
+
+  deploy:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    
+    steps:
+    - name: Checkout código
+      uses: actions/checkout@v4
+      
+    - name: Configurar JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: maven
+        
+    - name: Build com Maven
+      run: mvn clean package -DskipTests
+      
+    - name: Configurar Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: Login no GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Converter nome do repositório para minúsculas
+      id: repo-name
+      run: echo "repo=${GITHUB_REPOSITORY,,}" >> $GITHUB_OUTPUT
+        
+    - name: Extrair metadados para Docker
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ghcr.io/${{ steps.repo-name.outputs.repo }}
+        tags: |
+          type=ref,event=branch
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
+        flavor: |
+          latest=auto
+          
+    - name: Build e Push da imagem Docker
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=registry,ref=ghcr.io/${{ steps.repo-name.outputs.repo }}:buildcache
+        cache-to: type=registry,ref=ghcr.io/${{ steps.repo-name.outputs.repo }}:buildcache,mode=max
+        provenance: false
+        
+    - name: Resumo do Deploy
+      run: |
+        echo "### 🚀 Deploy Concluído com Sucesso!" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Imagem Docker publicada em:** ghcr.io/${{ steps.repo-name.outputs.repo }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Tags:**" >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY
+        echo "${{ steps.meta.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Para executar localmente:**" >> $GITHUB_STEP_SUMMARY
+        echo '```bash' >> $GITHUB_STEP_SUMMARY
+        echo "docker pull ghcr.io/${{ steps.repo-name.outputs.repo }}:latest" >> $GITHUB_STEP_SUMMARY
+        echo "docker run -d -p 8080:8080 ghcr.io/${{ steps.repo-name.outputs.repo }}:latest" >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY

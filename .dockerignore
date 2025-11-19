@@ -1,0 +1,44 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# IDEs
+.idea
+.vscode
+*.iml
+.project
+.classpath
+.settings
+
+# Maven
+!target/*.jar
+target/classes
+target/test-classes
+target/maven-status
+target/generated-sources
+target/generated-test-sources
+target/surefire-reports
+
+# Logs
+*.log
+logs/
+
+# Docs
+*.md
+!README.md
+docs/
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Misc
+*.tmp
+*.bak
+*.swp
+node_modules/

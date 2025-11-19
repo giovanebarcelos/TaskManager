@@ -1,0 +1,48 @@
+# Ignorar arquivos do Maven
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+
+# Ignorar arquivos do IDE
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+.settings/
+.project
+.classpath
+
+# Ignorar banco de dados SQLite
+*.db
+*.sqlite
+*.sqlite3
+taskmanager.db
+
+# Ignorar logs
+*.log
+logs/
+
+# Ignorar arquivos temporários
+*.tmp
+*.bak
+*.swp
+*~
+
+# Ignorar arquivos do sistema operacional
+.DS_Store
+Thumbs.db
+
+# Ignorar arquivos de cobertura
+.jacoco/
+jacoco.exec
+
+# Ignorar diretório de build do Spring Boot
+build/
