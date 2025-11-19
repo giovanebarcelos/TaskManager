@@ -1,4 +1,4 @@
-# 🚀 Guia de Deploy
+# 🚀 Guia de Deploy 
 
 Este documento descreve como fazer deploy da aplicação Task Manager usando diferentes métodos.
 
